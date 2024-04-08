@@ -5,7 +5,6 @@ import (
 
 	"golang.org/x/xerrors"
 
-	"github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy/pkg/commands/operation"
 	"github.com/aquasecurity/trivy/pkg/flag"
 	"github.com/aquasecurity/trivy/pkg/log"
@@ -43,10 +42,6 @@ func Run(ctx context.Context, opts flag.Options) (err error) {
 		return nil
 	}
 
-	if err = db.Init(opts.CacheDir); err != nil {
-		return xerrors.Errorf("error in vulnerability DB initialize: %w", err)
-	}
-
 	// Initialize WASM modules
 	m, err := module.NewManager(ctx, module.Options{
 		Dir:            opts.ModuleDir,
@@ -57,7 +52,10 @@ func Run(ctx context.Context, opts flag.Options) (err error) {
 	}
 	m.Register()
 
-	server := rpcServer.NewServer(opts.AppVersion, opts.Listen, opts.CacheDir, opts.Token, opts.TokenHeader,
+	server, err := rpcServer.NewServer(opts.AppVersion, opts.Listen, opts.CacheDir, opts.Token, opts.TokenHeader,
 		opts.DBRepository, opts.RegistryOpts())
+	if err != nil {
+		return xerrors.Errorf("failed to create server: %w", err)
+	}
 	return server.ListenAndServe(ctx, cache, opts.SkipDBUpdate)
 }

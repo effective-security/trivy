@@ -7,6 +7,7 @@ import (
 	version "github.com/knqyf263/go-rpm-version"
 	"golang.org/x/xerrors"
 
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	susecvrf "github.com/aquasecurity/trivy-db/pkg/vulnsrc/suse-cvrf"
 	osver "github.com/aquasecurity/trivy/pkg/detector/ospkg/version"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -74,15 +75,15 @@ type Scanner struct {
 }
 
 // NewScanner is the factory method for Scanner
-func NewScanner(t Type) *Scanner {
+func NewScanner(dbc vulndb.Operation, t Type) *Scanner {
 	switch t {
 	case SUSEEnterpriseLinux:
 		return &Scanner{
-			vs: susecvrf.NewVulnSrc(susecvrf.SUSEEnterpriseLinux),
+			vs: susecvrf.NewVulnSrc(dbc, susecvrf.SUSEEnterpriseLinux),
 		}
 	case OpenSUSE:
 		return &Scanner{
-			vs: susecvrf.NewVulnSrc(susecvrf.OpenSUSE),
+			vs: susecvrf.NewVulnSrc(dbc, susecvrf.OpenSUSE),
 		}
 	}
 	return nil

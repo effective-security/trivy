@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	k8sArtifacts "github.com/aquasecurity/trivy-kubernetes/pkg/artifacts"
 	"github.com/aquasecurity/trivy-kubernetes/pkg/k8s"
 	cmd "github.com/aquasecurity/trivy/pkg/commands/artifact"
@@ -81,13 +82,20 @@ func (r *runner) run(ctx context.Context, artifacts []*k8sArtifacts.Artifact) er
 		}
 		return xerrors.Errorf("init error: %w", err)
 	}
+	dbc, err := db.OpenReadonly(r.flagOpts.CacheDir)
+	if err != nil {
+		return xerrors.Errorf("db initialization error: %w", err)
+	}
 	defer func() {
+		if err := dbc.Close(); err != nil {
+			log.Logger.Errorf("failed to close db: %s", err)
+		}
 		if err := runner.Close(ctx); err != nil {
 			log.Logger.Errorf("failed to close runner: %s", err)
 		}
 	}()
 
-	s := scanner.NewScanner(r.cluster, runner, r.flagOpts)
+	s := scanner.NewScanner(dbc, r.cluster, runner, r.flagOpts)
 
 	// set scanners types by spec
 	if r.flagOpts.Compliance.Spec.ID != "" {

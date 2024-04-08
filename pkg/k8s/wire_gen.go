@@ -18,12 +18,11 @@ import (
 
 // Injectors from inject.go:
 
-func initializeScanK8s(localArtifactCache cache.LocalArtifactCache) *ScanKubernetes {
+func initializeScanK8s(dbc db.Operation,localArtifactCache cache.LocalArtifactCache) *ScanKubernetes {
 	applierApplier := applier.NewApplier(localArtifactCache)
-	scanner := ospkg.NewScanner()
-	langpkgScanner := langpkg.NewScanner()
-	config := db.Config{}
-	client := vulnerability.NewClient(config)
+	scanner := ospkg.NewScanner(dbc)
+	langpkgScanner := langpkg.NewScanner(dbc)
+	client := vulnerability.NewClient(dbc)
 	localScanner := local.NewScanner(applierApplier, scanner, langpkgScanner, client)
 	scanKubernetes := NewScanKubernetes(localScanner)
 	return scanKubernetes

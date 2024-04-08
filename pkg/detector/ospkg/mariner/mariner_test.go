@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/vulnerability"
 	"github.com/aquasecurity/trivy/pkg/dbtest"
@@ -130,10 +129,10 @@ func TestScanner_Detect(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = dbtest.InitDB(t, tt.fixtures)
-			defer db.Close()
+			dbc, _ := dbtest.InitDB(t, tt.fixtures)
+			defer dbc.Close()
 
-			s := mariner.NewScanner()
+			s := mariner.NewScanner(dbc)
 			got, err := s.Detect(tt.args.osVer, nil, tt.args.pkgs)
 			if tt.wantErr != "" {
 				require.Error(t, err)

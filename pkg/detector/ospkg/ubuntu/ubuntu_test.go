@@ -2,12 +2,12 @@ package ubuntu_test
 
 import (
 	"context"
-	"github.com/aquasecurity/trivy/pkg/clock"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/aquasecurity/trivy-db/pkg/db"
+	"github.com/aquasecurity/trivy/pkg/clock"
+
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/vulnerability"
 	"github.com/aquasecurity/trivy/pkg/dbtest"
@@ -175,10 +175,10 @@ func TestScanner_Detect(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = dbtest.InitDB(t, tt.fixtures)
-			defer db.Close()
+			dbc, _ := dbtest.InitDB(t, tt.fixtures)
+			defer dbc.Close()
 
-			s := ubuntu.NewScanner()
+			s := ubuntu.NewScanner(dbc)
 			got, err := s.Detect(tt.args.osVer, nil, tt.args.pkgs)
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -254,7 +254,9 @@ func TestScanner_IsSupportedVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := clock.With(context.Background(), tt.now)
-			s := ubuntu.NewScanner()
+			dbc, _ := dbtest.InitDB(t, nil)
+			defer dbc.Close()
+			s := ubuntu.NewScanner(dbc)
 			got := s.IsSupportedVersion(ctx, tt.args.osFamily, tt.args.osVer)
 			assert.Equal(t, tt.want, got)
 		})

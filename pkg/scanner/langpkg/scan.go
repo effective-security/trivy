@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy/pkg/detector/library"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/log"
@@ -27,10 +28,14 @@ type Scanner interface {
 	Scan(target types.ScanTarget, options types.ScanOptions) (types.Results, error)
 }
 
-type scanner struct{}
+type scanner struct {
+	db db.Operation
+}
 
-func NewScanner() Scanner {
-	return &scanner{}
+func NewScanner(dbc db.Operation) Scanner {
+	return &scanner{
+		db: dbc,
+	}
 }
 
 func (s *scanner) Packages(target types.ScanTarget, _ types.ScanOptions) types.Results {
@@ -71,7 +76,7 @@ func (s *scanner) Scan(target types.ScanTarget, _ types.ScanOptions) (types.Resu
 		}
 
 		log.Logger.Debugf("Detecting library vulnerabilities, type: %s, path: %s", app.Type, app.FilePath)
-		vulns, err := library.Detect(app.Type, app.Libraries)
+		vulns, err := library.Detect(s.db, app.Type, app.Libraries)
 		if err != nil {
 			return nil, xerrors.Errorf("failed vulnerability detection of libraries: %w", err)
 		} else if len(vulns) == 0 {

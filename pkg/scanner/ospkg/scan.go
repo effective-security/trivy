@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	ospkgDetector "github.com/aquasecurity/trivy/pkg/detector/ospkg"
 	"github.com/aquasecurity/trivy/pkg/log"
 	"github.com/aquasecurity/trivy/pkg/types"
@@ -19,10 +20,14 @@ type Scanner interface {
 	Scan(ctx context.Context, target types.ScanTarget, options types.ScanOptions) (types.Result, bool, error)
 }
 
-type scanner struct{}
+type scanner struct {
+	db db.Operation
+}
 
-func NewScanner() Scanner {
-	return &scanner{}
+func NewScanner(dbc db.Operation) Scanner {
+	return &scanner{
+		db: dbc,
+	}
 }
 
 func (s *scanner) Packages(target types.ScanTarget, _ types.ScanOptions) types.Result {
@@ -51,7 +56,7 @@ func (s *scanner) Scan(ctx context.Context, target types.ScanTarget, _ types.Sca
 		target.OS.Name += "-ESM"
 	}
 
-	vulns, eosl, err := ospkgDetector.Detect(ctx, "", target.OS.Family, target.OS.Name, target.Repository, time.Time{},
+	vulns, eosl, err := ospkgDetector.Detect(ctx, s.db, "", target.OS.Family, target.OS.Name, target.Repository, time.Time{},
 		target.Packages)
 	if errors.Is(err, ospkgDetector.ErrUnsupportedOS) {
 		return types.Result{}, false, nil

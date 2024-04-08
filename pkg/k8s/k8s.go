@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/wire"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/scanner"
 	"github.com/aquasecurity/trivy/pkg/scanner/local"
@@ -29,8 +30,8 @@ func NewScanKubernetes(s local.Scanner) *ScanKubernetes {
 }
 
 // NewKubernetesScanner is the factory method for scanner
-func NewKubernetesScanner() *ScanKubernetes {
-	return initializeScanK8s(nil)
+func NewKubernetesScanner(dbc db.Operation) *ScanKubernetes {
+	return initializeScanK8s(dbc, nil)
 }
 
 // Scan scans k8s core components and return it findings

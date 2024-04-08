@@ -13,6 +13,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/go-version/pkg/version"
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy-kubernetes/pkg/artifacts"
 	"github.com/aquasecurity/trivy-kubernetes/pkg/bom"
 	cmd "github.com/aquasecurity/trivy/pkg/commands/artifact"
@@ -41,13 +42,15 @@ type Scanner struct {
 	cluster string
 	runner  cmd.Runner
 	opts    flag.Options
+	db      vulndb.Operation
 }
 
-func NewScanner(cluster string, runner cmd.Runner, opts flag.Options) *Scanner {
+func NewScanner(db vulndb.Operation, cluster string, runner cmd.Runner, opts flag.Options) *Scanner {
 	return &Scanner{
 		cluster,
 		runner,
 		opts,
+		db,
 	}
 }
 
@@ -227,7 +230,7 @@ func (s *Scanner) scanK8sVulns(ctx context.Context, artifactsData []*artifacts.A
 		return resources, nil
 	}
 
-	k8sScanner := k8s.NewKubernetesScanner()
+	k8sScanner := k8s.NewKubernetesScanner(s.db)
 	scanOptions := types.ScanOptions{
 		Scanners: s.opts.Scanners,
 		VulnType: s.opts.VulnType,

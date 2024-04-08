@@ -54,8 +54,9 @@ func initDB(t *testing.T) string {
 		fixtures = append(fixtures, filepath.Join(fixtureDir, entry.Name()))
 	}
 
-	cacheDir := dbtest.InitDB(t, fixtures)
-	defer db.Close()
+	// create DB
+	dbc, cacheDir := dbtest.InitDB(t, fixtures)
+	require.NoError(t, dbc.Close())
 
 	dbDir := filepath.Dir(db.Path(cacheDir))
 

@@ -14,7 +14,7 @@ import (
 )
 
 // InitDB initializes testing database.
-func InitDB(t *testing.T, fixtureFiles []string) string {
+func InitDB(t *testing.T, fixtureFiles []string) (db.Operation, string) {
 	// Create a temp dir
 	dir := t.TempDir()
 
@@ -24,19 +24,23 @@ func InitDB(t *testing.T, fixtureFiles []string) string {
 	require.NoError(t, err)
 
 	// Load testdata into BoltDB
-	loader, err := fixtures.New(dbPath, fixtureFiles)
+	if len(fixtureFiles) > 0 {
+		loader, err := fixtures.New(dbPath, fixtureFiles)
+		require.NoError(t, err)
+		require.NoError(t, loader.Load())
+		require.NoError(t, loader.Close())
+	}
+
+	// create DB if needed
+	dbc, err := db.OpenForUpdate(dir)
 	require.NoError(t, err)
-	require.NoError(t, loader.Load())
-	require.NoError(t, loader.Close())
+	require.NoError(t, dbc.Close())
 
-	// Initialize DB
-	require.NoError(t, db.Init(dir))
+	// open DB in readonly mode
+	dbc, err = db.OpenReadonly(dir)
+	require.NoError(t, err)
 
-	return dir
-}
-
-func Close() error {
-	return db.Close()
+	return dbc, dir
 }
 
 func InitJavaDB(t *testing.T, cacheDir string) {

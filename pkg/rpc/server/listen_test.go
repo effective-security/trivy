@@ -19,6 +19,7 @@ import (
 	"github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy-db/pkg/metadata"
 	dbFile "github.com/aquasecurity/trivy/pkg/db"
+	"github.com/aquasecurity/trivy/pkg/dbtest"
 	"github.com/aquasecurity/trivy/pkg/fanal/cache"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/policy"
@@ -132,16 +133,20 @@ func Test_dbWorker_update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cacheDir := t.TempDir()
 
-			require.NoError(t, db.Init(cacheDir), tt.name)
+			// create DB
+			dbc, cacheDir := dbtest.InitDB(t, nil)
+
+			srv := &Server{db: dbc}
+			defer func() {
+				// close new DB
+				require.NoError(t, srv.Close())
+			}()
 
 			mockDBClient := new(dbFile.MockOperation)
 			mockDBClient.On("NeedsUpdate",
 				tt.needsUpdate.input.appVersion, tt.needsUpdate.input.skip).Return(
 				tt.needsUpdate.output.needsUpdate, tt.needsUpdate.output.err)
-
-			defer func() { _ = db.Close() }()
 
 			if tt.download.call {
 				mockDBClient.On("Download", mock.Anything, mock.Anything, mock.Anything).Run(
@@ -160,7 +165,7 @@ func Test_dbWorker_update(t *testing.T) {
 					}).Return(tt.download.err)
 			}
 
-			w := newDBWorker(mockDBClient)
+			w := newDBWorker(mockDBClient, srv)
 
 			var dbUpdateWg, requestWg sync.WaitGroup
 			err := w.update(context.Background(), tt.args.appVersion, cacheDir,
@@ -249,11 +254,19 @@ func Test_newServeMux(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dbUpdateWg, requestWg := &sync.WaitGroup{}, &sync.WaitGroup{}
 
-			c, err := cache.NewFSCache(t.TempDir())
-			require.NoError(t, err)
-			defer func() { _ = c.Close() }()
+			// create DB
+			dbc, cacheDir := dbtest.InitDB(t, nil)
+			defer func() {
+				require.NoError(t, dbc.Close())
+			}()
 
-			ts := httptest.NewServer(newServeMux(context.Background(), c, dbUpdateWg, requestWg, tt.args.token,
+			c, err := cache.NewFSCache(cacheDir)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, c.Close())
+			}()
+
+			ts := httptest.NewServer(newServeMux(context.Background(), dbc, c, dbUpdateWg, requestWg, tt.args.token,
 				tt.args.tokenHeader, ""),
 			)
 			defer ts.Close()
@@ -262,6 +275,7 @@ func Test_newServeMux(t *testing.T) {
 			url := ts.URL + tt.path
 			if tt.header == nil {
 				resp, err = http.Get(url)
+				require.NoError(t, err)
 			} else {
 				req, err := http.NewRequest(http.MethodPost, url, nil)
 				require.NoError(t, err)
@@ -269,9 +283,9 @@ func Test_newServeMux(t *testing.T) {
 				req.Header = tt.header
 				client := new(http.Client)
 				resp, err = client.Do(req)
+				require.NoError(t, err)
 			}
 
-			require.NoError(t, err)
 			assert.Equal(t, tt.want, resp.StatusCode)
 			defer resp.Body.Close()
 		})
@@ -280,11 +294,16 @@ func Test_newServeMux(t *testing.T) {
 
 func Test_VersionEndpoint(t *testing.T) {
 	dbUpdateWg, requestWg := &sync.WaitGroup{}, &sync.WaitGroup{}
-	c, err := cache.NewFSCache(t.TempDir())
+	cacheDir := t.TempDir()
+	c, err := cache.NewFSCache(cacheDir)
 	require.NoError(t, err)
 	defer func() { _ = c.Close() }()
 
-	ts := httptest.NewServer(newServeMux(context.Background(), c, dbUpdateWg, requestWg, "", "",
+	dbc, err := db.OpenForUpdate(cacheDir)
+	require.NoError(t, err)
+	defer func() { _ = dbc.Close() }()
+
+	ts := httptest.NewServer(newServeMux(context.Background(), dbc, c, dbUpdateWg, requestWg, "", "",
 		"testdata/testcache"),
 	)
 	defer ts.Close()

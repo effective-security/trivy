@@ -5,13 +5,13 @@ package integration
 import (
 	"context"
 	"fmt"
-	"github.com/aquasecurity/trivy/pkg/types"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aquasecurity/trivy/pkg/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"

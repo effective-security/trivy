@@ -3,12 +3,12 @@
 package integration
 
 import (
-	"github.com/aquasecurity/trivy/pkg/types"
 	"path/filepath"
 	"testing"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/scanner/post"
+	"github.com/aquasecurity/trivy/pkg/types"
 )
 
 func TestModule(t *testing.T) {
