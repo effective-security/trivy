@@ -35,14 +35,20 @@ type Server struct {
 	token        string
 	tokenHeader  string
 	dbRepository name.Reference
+	db           db.Operation
 
 	// For OCI registries
 	types.RegistryOptions
 }
 
 // NewServer returns an instance of Server
-func NewServer(appVersion, addr, cacheDir, token, tokenHeader string, dbRepository name.Reference, opt types.RegistryOptions) Server {
-	return Server{
+func NewServer(appVersion, addr, cacheDir, token, tokenHeader string, dbRepository name.Reference, opt types.RegistryOptions) (*Server, error) {
+	rodb, err := db.OpenReadonly(cacheDir)
+	if err != nil {
+		return nil, xerrors.Errorf("error in vulnerability DB initialize: %w", err)
+	}
+
+	return &Server{
 		appVersion:      appVersion,
 		addr:            addr,
 		cacheDir:        cacheDir,
@@ -50,16 +56,21 @@ func NewServer(appVersion, addr, cacheDir, token, tokenHeader string, dbReposito
 		tokenHeader:     tokenHeader,
 		dbRepository:    dbRepository,
 		RegistryOptions: opt,
-	}
+		db:              rodb,
+	}, nil
+}
+
+func (s *Server) Close() error {
+	return s.db.Close()
 }
 
 // ListenAndServe starts Trivy server
-func (s Server) ListenAndServe(ctx context.Context, serverCache cache.Cache, skipDBUpdate bool) error {
+func (s *Server) ListenAndServe(ctx context.Context, serverCache cache.Cache, skipDBUpdate bool) error {
 	requestWg := &sync.WaitGroup{}
 	dbUpdateWg := &sync.WaitGroup{}
 
 	go func() {
-		worker := newDBWorker(dbc.NewClient(s.cacheDir, true, dbc.WithDBRepository(s.dbRepository)))
+		worker := newDBWorker(dbc.NewClient(s.cacheDir, true, dbc.WithDBRepository(s.dbRepository)), s)
 		for {
 			time.Sleep(updateInterval)
 			if err := worker.update(ctx, s.appVersion, s.cacheDir, skipDBUpdate, dbUpdateWg, requestWg, s.RegistryOptions); err != nil {
@@ -68,13 +79,13 @@ func (s Server) ListenAndServe(ctx context.Context, serverCache cache.Cache, ski
 		}
 	}()
 
-	mux := newServeMux(ctx, serverCache, dbUpdateWg, requestWg, s.token, s.tokenHeader, s.cacheDir)
+	mux := newServeMux(ctx, s.db, serverCache, dbUpdateWg, requestWg, s.token, s.tokenHeader, s.cacheDir)
 	log.Logger.Infof("Listening %s...", s.addr)
 
 	return http.ListenAndServe(s.addr, mux)
 }
 
-func newServeMux(ctx context.Context, serverCache cache.Cache, dbUpdateWg, requestWg *sync.WaitGroup,
+func newServeMux(ctx context.Context, rodb db.Operation, serverCache cache.Cache, dbUpdateWg, requestWg *sync.WaitGroup,
 	token, tokenHeader, cacheDir string) *http.ServeMux {
 	withWaitGroup := func(base http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +103,7 @@ func newServeMux(ctx context.Context, serverCache cache.Cache, dbUpdateWg, reque
 
 	mux := http.NewServeMux()
 
-	scanServer := rpcScanner.NewScannerServer(initializeScanServer(serverCache), nil)
+	scanServer := rpcScanner.NewScannerServer(initializeScanServer(rodb, serverCache), nil)
 	scanHandler := withToken(withWaitGroup(scanServer), token, tokenHeader)
 	mux.Handle(rpcScanner.ScannerPathPrefix, gziphandler.GzipHandler(scanHandler))
 
@@ -129,13 +140,17 @@ func withToken(base http.Handler, token, tokenHeader string) http.Handler {
 
 type dbWorker struct {
 	dbClient dbc.Operation
+	s        *Server
 }
 
-func newDBWorker(dbClient dbc.Operation) dbWorker {
-	return dbWorker{dbClient: dbClient}
+func newDBWorker(dbClient dbc.Operation, s *Server) *dbWorker {
+	return &dbWorker{
+		dbClient: dbClient,
+		s:        s,
+	}
 }
 
-func (w dbWorker) update(ctx context.Context, appVersion, cacheDir string,
+func (w *dbWorker) update(ctx context.Context, appVersion, cacheDir string,
 	skipDBUpdate bool, dbUpdateWg, requestWg *sync.WaitGroup, opt types.RegistryOptions) error {
 	log.Logger.Debug("Check for DB update...")
 	needsUpdate, err := w.dbClient.NeedsUpdate(appVersion, skipDBUpdate)
@@ -152,7 +167,7 @@ func (w dbWorker) update(ctx context.Context, appVersion, cacheDir string,
 	return nil
 }
 
-func (w dbWorker) hotUpdate(ctx context.Context, cacheDir string, dbUpdateWg, requestWg *sync.WaitGroup, opt types.RegistryOptions) error {
+func (w *dbWorker) hotUpdate(ctx context.Context, cacheDir string, dbUpdateWg, requestWg *sync.WaitGroup, opt types.RegistryOptions) error {
 	tmpDir, err := os.MkdirTemp("", "db")
 	if err != nil {
 		return xerrors.Errorf("failed to create a temp dir: %w", err)
@@ -170,7 +185,7 @@ func (w dbWorker) hotUpdate(ctx context.Context, cacheDir string, dbUpdateWg, re
 	log.Logger.Info("Waiting for all requests to be processed before DB update...")
 	requestWg.Wait()
 
-	if err = db.Close(); err != nil {
+	if err = w.s.db.Close(); err != nil {
 		return xerrors.Errorf("failed to close DB: %w", err)
 	}
 
@@ -185,7 +200,9 @@ func (w dbWorker) hotUpdate(ctx context.Context, cacheDir string, dbUpdateWg, re
 	}
 
 	log.Logger.Info("Reopening DB...")
-	if err = db.Init(cacheDir); err != nil {
+
+	w.s.db, err = db.OpenReadonly(cacheDir)
+	if err != nil {
 		return xerrors.Errorf("failed to open DB: %w", err)
 	}
 

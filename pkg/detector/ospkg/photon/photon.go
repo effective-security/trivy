@@ -7,6 +7,7 @@ import (
 	version "github.com/knqyf263/go-rpm-version"
 	"golang.org/x/xerrors"
 
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/photon"
 	osver "github.com/aquasecurity/trivy/pkg/detector/ospkg/version"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -32,9 +33,9 @@ type Scanner struct {
 }
 
 // NewScanner is the factory method for Scanner
-func NewScanner() *Scanner {
+func NewScanner(dbc vulndb.Operation) *Scanner {
 	return &Scanner{
-		vs: photon.NewVulnSrc(),
+		vs: photon.NewVulnSrc(dbc),
 	}
 }
 

@@ -18,12 +18,11 @@ import (
 
 // Injectors from inject.go:
 
-func initializeScanServer(localArtifactCache cache.LocalArtifactCache) *ScanServer {
+func initializeScanServer(dbc db.Operation,localArtifactCache cache.LocalArtifactCache) *ScanServer {
 	applierApplier := applier.NewApplier(localArtifactCache)
-	scanner := ospkg.NewScanner()
-	langpkgScanner := langpkg.NewScanner()
-	config := db.Config{}
-	client := vulnerability.NewClient(config)
+	scanner := ospkg.NewScanner(dbc)
+	langpkgScanner := langpkg.NewScanner(dbc)
+	client := vulnerability.NewClient(dbc)
 	localScanner := local.NewScanner(applierApplier, scanner, langpkgScanner, client)
 	scanServer := NewScanServer(localScanner)
 	return scanServer

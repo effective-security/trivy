@@ -22,7 +22,7 @@ import (
 )
 
 // NewDriver returns a driver according to the library type
-func NewDriver(libType ftypes.LangType) (Driver, bool) {
+func NewDriver(dbc db.Operation, libType ftypes.LangType) (Driver, bool) {
 	var ecosystem dbTypes.Ecosystem
 	var comparer compare.Comparer
 
@@ -88,7 +88,7 @@ func NewDriver(libType ftypes.LangType) (Driver, bool) {
 	return Driver{
 		ecosystem: ecosystem,
 		comparer:  comparer,
-		dbc:       db.Config{},
+		db:        dbc,
 	}, true
 }
 
@@ -96,7 +96,7 @@ func NewDriver(libType ftypes.LangType) (Driver, bool) {
 type Driver struct {
 	ecosystem dbTypes.Ecosystem
 	comparer  compare.Comparer
-	dbc       db.Config
+	db        db.Operation
 }
 
 // Type returns the driver ecosystem
@@ -111,7 +111,7 @@ func (d *Driver) Type() string {
 func (d *Driver) DetectVulnerabilities(pkgID, pkgName, pkgVer string) ([]types.DetectedVulnerability, error) {
 	// e.g. "pip::", "npm::"
 	prefix := fmt.Sprintf("%s::", d.ecosystem)
-	advisories, err := d.dbc.GetAdvisories(prefix, vulnerability.NormalizePkgName(d.ecosystem, pkgName))
+	advisories, err := d.db.GetAdvisories(prefix, vulnerability.NormalizePkgName(d.ecosystem, pkgName))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get %s advisories: %w", d.ecosystem, err)
 	}

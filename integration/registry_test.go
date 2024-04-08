@@ -10,7 +10,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/aquasecurity/trivy/pkg/types"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aquasecurity/trivy/pkg/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/go-containerregistry/pkg/authn"

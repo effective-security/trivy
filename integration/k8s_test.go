@@ -87,6 +87,8 @@ func TestK8s(t *testing.T) {
 			"kind-kind-test",
 			"--output",
 			outputFile,
+			"--cache-dir",
+			cacheDir,
 		}
 
 		// Run Trivy

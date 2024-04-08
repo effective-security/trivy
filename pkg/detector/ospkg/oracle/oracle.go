@@ -8,6 +8,7 @@ import (
 	version "github.com/knqyf263/go-rpm-version"
 	"golang.org/x/xerrors"
 
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	oracleoval "github.com/aquasecurity/trivy-db/pkg/vulnsrc/oracle-oval"
 	osver "github.com/aquasecurity/trivy/pkg/detector/ospkg/version"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -37,9 +38,9 @@ type Scanner struct {
 }
 
 // NewScanner is the factory method to return oracle vulnerabilities
-func NewScanner() *Scanner {
+func NewScanner(dbc vulndb.Operation) *Scanner {
 	return &Scanner{
-		vs: oracleoval.NewVulnSrc(),
+		vs: oracleoval.NewVulnSrc(dbc),
 	}
 }
 

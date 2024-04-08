@@ -73,6 +73,9 @@ type ScannerConfig struct {
 
 	// Artifact options
 	ArtifactOption artifact.Option
+
+	// DbOperation provides DB interface
+	DbOperation db.Operation
 }
 
 type Runner interface {
@@ -97,8 +100,8 @@ type Runner interface {
 }
 
 type runner struct {
-	cache  cache.Cache
-	dbOpen bool
+	cache cache.Cache
+	db    db.Operation
 
 	// WASM modules
 	module *module.Manager
@@ -152,8 +155,8 @@ func (r *runner) Close(ctx context.Context) error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if r.dbOpen {
-		if err := db.Close(); err != nil {
+	if r.db != nil {
+		if err := r.db.Close(); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -264,7 +267,7 @@ func (r *runner) ScanVM(ctx context.Context, opts flag.Options) (types.Report, e
 }
 
 func (r *runner) scanArtifact(ctx context.Context, opts flag.Options, initializeScanner InitializeScanner) (types.Report, error) {
-	report, err := scan(ctx, opts, initializeScanner, r.cache)
+	report, err := scan(ctx, opts, initializeScanner, r.cache, r.db)
 	if err != nil {
 		return types.Report{}, xerrors.Errorf("scan error: %w", err)
 	}
@@ -308,10 +311,14 @@ func (r *runner) initDB(ctx context.Context, opts flag.Options) error {
 		return SkipScan
 	}
 
-	if err := db.Init(opts.CacheDir); err != nil {
-		return xerrors.Errorf("error in vulnerability DB initialize: %w", err)
+	if r.db == nil {
+		dbc, err := db.OpenReadonly(opts.CacheDir)
+		if err != nil {
+			return xerrors.Errorf("error in vulnerability DB initialize: %w", err)
+		}
+
+		r.db = dbc
 	}
-	r.dbOpen = true
 
 	return nil
 }
@@ -532,7 +539,7 @@ func filterMisconfigAnalyzers(included, all []analyzer.Type) ([]analyzer.Type, e
 	return lo.Without(all, included...), nil
 }
 
-func initScannerConfig(opts flag.Options, cacheClient cache.Cache) (ScannerConfig, types.ScanOptions, error) {
+func initScannerConfig(opts flag.Options, cacheClient cache.Cache, dbc db.Operation) (ScannerConfig, types.ScanOptions, error) {
 	target := opts.Target
 	if opts.Input != "" {
 		target = opts.Input
@@ -692,12 +699,13 @@ func initScannerConfig(opts flag.Options, cacheClient cache.Cache) (ScannerConfi
 				ClassifierConfidenceLevel: opts.LicenseConfidenceLevel,
 			},
 		},
+		DbOperation: dbc,
 	}, scanOptions, nil
 }
 
-func scan(ctx context.Context, opts flag.Options, initializeScanner InitializeScanner, cacheClient cache.Cache) (
+func scan(ctx context.Context, opts flag.Options, initializeScanner InitializeScanner, cacheClient cache.Cache, dbc db.Operation) (
 	types.Report, error) {
-	scannerConfig, scanOptions, err := initScannerConfig(opts, cacheClient)
+	scannerConfig, scanOptions, err := initScannerConfig(opts, cacheClient, dbc)
 	if err != nil {
 		return types.Report{}, err
 	}

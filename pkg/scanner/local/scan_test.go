@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy/pkg/dbtest"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
@@ -1362,13 +1361,13 @@ func TestScanner_Scan(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = dbtest.InitDB(t, tt.fixtures)
-			defer db.Close()
+			dbc, _ := dbtest.InitDB(t, tt.fixtures)
+			defer dbc.Close()
 
 			applier := new(MockApplier)
 			applier.ApplyApplyLayersExpectation(tt.applyLayersExpectation)
 
-			s := NewScanner(applier, ospkg.NewScanner(), langpkg.NewScanner(), vulnerability.NewClient(db.Config{}))
+			s := NewScanner(applier, ospkg.NewScanner(dbc), langpkg.NewScanner(dbc), vulnerability.NewClient(dbc))
 			gotResults, gotOS, err := s.Scan(context.Background(), tt.args.target, "", tt.args.layerIDs, tt.args.options)
 			if tt.wantErr != "" {
 				require.NotNil(t, err, tt.name)

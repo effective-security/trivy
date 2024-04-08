@@ -8,6 +8,7 @@ import (
 	version "github.com/knqyf263/go-apk-version"
 	"golang.org/x/xerrors"
 
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/alpine"
 	osver "github.com/aquasecurity/trivy/pkg/detector/ospkg/version"
@@ -57,9 +58,9 @@ type Scanner struct {
 }
 
 // NewScanner is the factory method for Scanner
-func NewScanner() *Scanner {
+func NewScanner(dbc vulndb.Operation) *Scanner {
 	return &Scanner{
-		vs: alpine.NewVulnSrc(),
+		vs: alpine.NewVulnSrc(dbc),
 	}
 }
 

@@ -30,6 +30,8 @@ func TestAwsCommandRun(t *testing.T) {
 			envs: map[string]string{
 				"AWS_ACCESS_KEY_ID":     "test",
 				"AWS_SECRET_ACCESS_KEY": "test",
+				"AWS_DEFAULT_REGION":    "",
+				"AWS_REGION":            "",
 			},
 			wantErr: "aws region is required",
 		},

@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
+	vulndb "github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	ustrings "github.com/aquasecurity/trivy-db/pkg/utils/strings"
 	redhat "github.com/aquasecurity/trivy-db/pkg/vulnsrc/redhat-oval"
@@ -70,9 +71,9 @@ type Scanner struct {
 }
 
 // NewScanner is the factory method for Scanner
-func NewScanner() *Scanner {
+func NewScanner(dbc vulndb.Operation) *Scanner {
 	return &Scanner{
-		vs: redhat.NewVulnSrc(),
+		vs: redhat.NewVulnSrc(dbc),
 	}
 }
 

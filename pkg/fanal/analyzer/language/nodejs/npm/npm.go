@@ -127,7 +127,7 @@ func (a npmLibraryAnalyzer) findLicenses(fsys fs.FS, lockPath string) (map[strin
 	dir := path.Dir(lockPath)
 	root := path.Join(dir, "node_modules")
 	if _, err := fs.Stat(fsys, root); errors.Is(err, fs.ErrNotExist) {
-		log.Logger.Infof(`To collect the license information of packages in %q, "npm install" needs to be performed beforehand`, lockPath)
+		// log.Logger.Infof(`To collect the license information of packages in %q, "npm install" needs to be performed beforehand`, lockPath)
 		return nil, nil
 	}
 

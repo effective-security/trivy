@@ -3,13 +3,14 @@ package library
 import (
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
 )
 
 // Detect scans and returns vulnerabilities of library
-func Detect(libType ftypes.LangType, pkgs []ftypes.Package) ([]types.DetectedVulnerability, error) {
-	driver, ok := NewDriver(libType)
+func Detect(dbc db.Operation, libType ftypes.LangType, pkgs []ftypes.Package) ([]types.DetectedVulnerability, error) {
+	driver, ok := NewDriver(dbc, libType)
 	if !ok {
 		return nil, nil
 	}

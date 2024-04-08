@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy-db/pkg/db"
 	"github.com/aquasecurity/trivy/pkg/detector/ospkg/alma"
 	"github.com/aquasecurity/trivy/pkg/detector/ospkg/alpine"
 	"github.com/aquasecurity/trivy/pkg/detector/ospkg/amazon"
@@ -29,7 +30,9 @@ var (
 	// ErrUnsupportedOS defines error for unsupported OS
 	ErrUnsupportedOS = xerrors.New("unsupported os")
 
-	drivers = map[ftypes.OSType]Driver{
+	// Replaced this with drivers that suppor additional DB operations parameter
+	// See newDriver below
+	/*drivers = map[ftypes.OSType]Driver{
 		ftypes.Alpine:       alpine.NewScanner(),
 		ftypes.Alma:         alma.NewScanner(),
 		ftypes.Amazon:       amazon.NewScanner(),
@@ -45,13 +48,13 @@ var (
 		ftypes.Photon:       photon.NewScanner(),
 		ftypes.Wolfi:        wolfi.NewScanner(),
 		ftypes.Chainguard:   chainguard.NewScanner(),
-	}
+	}*/
 )
 
 // RegisterDriver is defined for extensibility and not supposed to be used in Trivy.
-func RegisterDriver(name ftypes.OSType, driver Driver) {
-	drivers[name] = driver
-}
+// func RegisterDriver(name ftypes.OSType, driver Driver) {
+// 	drivers[name] = driver
+// }
 
 // Driver defines operations for OS package scan
 type Driver interface {
@@ -60,8 +63,8 @@ type Driver interface {
 }
 
 // Detect detects the vulnerabilities
-func Detect(ctx context.Context, _, osFamily ftypes.OSType, osName string, repo *ftypes.Repository, _ time.Time, pkgs []ftypes.Package) ([]types.DetectedVulnerability, bool, error) {
-	driver, err := newDriver(osFamily)
+func Detect(ctx context.Context, dbc db.Operation, _, osFamily ftypes.OSType, osName string, repo *ftypes.Repository, _ time.Time, pkgs []ftypes.Package) ([]types.DetectedVulnerability, bool, error) {
+	driver, err := newDriver(dbc, osFamily)
 	if err != nil {
 		return nil, false, ErrUnsupportedOS
 	}
@@ -81,9 +84,39 @@ func Detect(ctx context.Context, _, osFamily ftypes.OSType, osName string, repo 
 	return vulns, eosl, nil
 }
 
-func newDriver(osFamily ftypes.OSType) (Driver, error) {
-	if driver, ok := drivers[osFamily]; ok {
-		return driver, nil
+func newDriver(dbc db.Operation, osFamily ftypes.OSType) (Driver, error) {
+
+	switch osFamily {
+	case ftypes.Alpine:
+		return alpine.NewScanner(dbc), nil
+	case ftypes.Alma:
+		return alma.NewScanner(dbc), nil
+	case ftypes.Amazon:
+		return amazon.NewScanner(dbc), nil
+	case ftypes.CBLMariner:
+		return mariner.NewScanner(dbc), nil
+	case ftypes.Debian:
+		return debian.NewScanner(dbc), nil
+	case ftypes.Ubuntu:
+		return ubuntu.NewScanner(dbc), nil
+	case ftypes.RedHat:
+		return redhat.NewScanner(dbc), nil
+	case ftypes.CentOS:
+		return redhat.NewScanner(dbc), nil
+	case ftypes.Rocky:
+		return rocky.NewScanner(dbc), nil
+	case ftypes.Oracle:
+		return oracle.NewScanner(dbc), nil
+	case ftypes.OpenSUSELeap:
+		return suse.NewScanner(dbc, suse.OpenSUSE), nil
+	case ftypes.SLES:
+		return suse.NewScanner(dbc, suse.SUSEEnterpriseLinux), nil
+	case ftypes.Photon:
+		return photon.NewScanner(dbc), nil
+	case ftypes.Wolfi:
+		return wolfi.NewScanner(dbc), nil
+	case ftypes.Chainguard:
+		return chainguard.NewScanner(dbc), nil
 	}
 
 	log.Logger.Warnf("unsupported os : %s", osFamily)

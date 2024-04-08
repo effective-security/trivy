@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/vulnerability"
 	"github.com/aquasecurity/trivy/pkg/dbtest"
@@ -186,10 +185,10 @@ func TestDriver_Detect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Initialize DB
-			_ = dbtest.InitDB(t, tt.fixtures)
-			defer db.Close()
+			dbc, _ := dbtest.InitDB(t, tt.fixtures)
+			defer dbc.Close()
 
-			driver, ok := library.NewDriver(tt.libType)
+			driver, ok := library.NewDriver(dbc, tt.libType)
 			require.True(t, ok)
 
 			got, err := driver.DetectVulnerabilities("", tt.args.pkgName, tt.args.pkgVer)

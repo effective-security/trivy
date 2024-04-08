@@ -4,13 +4,13 @@ package integration
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"strings"
 	"testing"
 
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestRepository tests `trivy repo` with the local code repositories
